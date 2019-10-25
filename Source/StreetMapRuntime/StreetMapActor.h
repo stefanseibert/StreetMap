@@ -1,8 +1,10 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
-
 #pragma once
 
+#include "StreetMapRuntime.h"
+#include "StreetMapComponent.h"
 #include "StreetMapActor.generated.h"
+
 
 /** An actor that renders a street map mesh component */
 UCLASS(hidecategories = (Physics)) // Physics category in detail panel is hidden. Our component/Actor is not simulated !

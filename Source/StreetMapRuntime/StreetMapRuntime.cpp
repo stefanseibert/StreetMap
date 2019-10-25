@@ -1,7 +1,6 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 
 #include "StreetMapRuntime.h"
-#include "ModuleManager.h"
 
 
 class FStreetMapRuntimeModule : public IModuleInterface

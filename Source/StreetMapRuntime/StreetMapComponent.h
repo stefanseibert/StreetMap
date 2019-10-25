@@ -1,12 +1,24 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 #pragma once
 
+#include "PolygonTools.h"
 #include "StreetMap.h"
+#include "StreetMapRuntime.h"
+#include "StreetMapComponent.h"
+#include "StreetMapSceneProxy.h"
 #include "Components/MeshComponent.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#include "StreetMapSceneProxy.h"
-#include "StreetMapComponent.generated.h"
+#include "Runtime/Engine/Classes/Engine/StaticMesh.h"
+#include "Runtime/Engine/Public/StaticMeshResources.h"
+#include "Runtime/Engine/Public/PrimitiveSceneProxy.h"
+#include "PhysicsEngine/BodySetup.h"
 
+#if WITH_EDITOR
+	#include "ModuleManager.h"
+	#include "PropertyEditorModule.h"
+#endif //WITH_EDITOR
+
+#include "StreetMapComponent.generated.h"
 
 
 class UBodySetup;

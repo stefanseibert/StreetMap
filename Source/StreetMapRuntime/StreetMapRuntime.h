@@ -2,6 +2,7 @@
 #pragma once
 
 #include "EngineMinimal.h"
+#include "ModuleManager.h"
 #include "Classes/Engine/Engine.h"	// For UEngine
 #include "EngineGlobals.h"	// For GEngine
 

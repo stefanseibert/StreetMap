@@ -1,16 +1,13 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 
-#include "StreetMapRuntime.h"
 #include "StreetMapSceneProxy.h"
-#include "StreetMapComponent.h"
-#include "Runtime/Engine/Public/SceneManagement.h"
 
 
 FStreetMapSceneProxy::FStreetMapSceneProxy(const UStreetMapComponent* InComponent)
 	: FPrimitiveSceneProxy(InComponent),
+	VertexFactory(GetScene().GetFeatureLevel(), "FStreetMapSceneProxy"),
 	StreetMapComp(InComponent),
-	CollisionResponse(InComponent->GetCollisionResponseToChannels()),
-	VertexFactory(GetScene().GetFeatureLevel(), "FStreetMapSceneProxy")
+	CollisionResponse(InComponent->GetCollisionResponseToChannels())
 {
 
 }
@@ -121,7 +118,7 @@ bool FStreetMapSceneProxy::CanBeOccluded() const
 }
 
 
-void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision) const
+void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, class FMeshElementCollector& Collector, FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision) const
 {
 	FMaterialRenderProxy* MaterialProxy = NULL;
 	if( WireframeMaterialRenderProxyOrNull != nullptr )
@@ -132,11 +129,11 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	{
 		if (bDrawCollision)
 		{
-			MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()), FColor::Cyan);
+			MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(), FLinearColor::Blue);
 		}
 		else if (MaterialProxy == nullptr)
 		{
-			MaterialProxy = StreetMapComp->GetDefaultMaterial()->GetRenderProxy(IsSelected());
+			MaterialProxy = StreetMapComp->GetDefaultMaterial()->GetRenderProxy();
 		}
 	}
 	
@@ -146,7 +143,9 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	Mesh.VertexFactory = &VertexFactory;
 	Mesh.MaterialRenderProxy = MaterialProxy;
 	Mesh.CastShadow = true;
-	BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+	FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+	DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, false, false, false);
+	BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
 	BatchElement.FirstIndex = 0;
 	const int IndexCount = IndexBuffer32.Indices.Num();
 	BatchElement.NumPrimitives = IndexCount / 3;
@@ -155,20 +154,6 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
 	Mesh.Type = PT_TriangleList;
 	Mesh.DepthPriorityGroup = SDPG_World;
-}
-
-
-void FStreetMapSceneProxy::DrawStaticElements( FStaticPrimitiveDrawInterface* PDI )
-{
-	const int IndexCount = IndexBuffer32.Indices.Num();
-	if( VertexBuffer.PositionVertexBuffer.GetNumVertices() > 0 && IndexCount > 0 )
-	{
-		const float ScreenSize = 1.0f;
-
-		FMeshBatch MeshBatch;
-		MakeMeshBatch( MeshBatch, nullptr);
-		PDI->DrawMesh( MeshBatch, ScreenSize );
-	}
 }
 
 
@@ -183,7 +168,7 @@ void FStreetMapSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*
 
 			const bool bIsWireframe = AllowDebugViewmodes() && View.Family->EngineShowFlags.Wireframe;
 
-			FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(IsSelected()), FLinearColor(0, 0.5f, 1.f)) : NULL;
+			FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(), FLinearColor(0, 0.5f, 1.f)) : NULL;
 
 
 			if (MustDrawMeshDynamically(View))
@@ -198,7 +183,7 @@ void FStreetMapSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*
 
 				// Draw the mesh!
 				FMeshBatch& MeshBatch = Collector.AllocateMesh();
-				MakeMeshBatch(MeshBatch, WireframeMaterialRenderProxy, bCanDrawCollision);
+				MakeMeshBatch(MeshBatch, Collector, WireframeMaterialRenderProxy, bCanDrawCollision);
 				Collector.AddMesh(ViewIndex, MeshBatch);
 			}
 		}

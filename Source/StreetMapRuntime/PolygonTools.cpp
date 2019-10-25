@@ -1,6 +1,5 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 
-#include "StreetMapRuntime.h"
 #include "PolygonTools.h"
 
 

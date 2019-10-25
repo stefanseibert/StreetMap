@@ -1,9 +1,13 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 #pragma once
 
+#include "StreetMapRuntime.h"
 #include "Runtime/Engine/Public/PrimitiveSceneProxy.h"
 #include "Runtime/Engine/Public/LocalVertexFactory.h"
 #include "Runtime/Engine/Public/DynamicMeshBuilder.h"
+#include "Runtime/Engine/Public/SceneManagement.h"
+#include "Runtime/Renderer/Public/MeshPassProcessor.h"
+#include "Runtime/Renderer/Public/PrimitiveSceneInfo.h"
 #include "StreetMapSceneProxy.generated.h"
 
 /**	A single vertex on a street map mesh */
@@ -82,7 +86,7 @@ protected:
 	void InitResources();
 
 	/** Makes a MeshBatch for rendering.  Called every time the mesh is drawn */
-	void MakeMeshBatch(struct FMeshBatch& Mesh, class FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision = false) const;
+	void MakeMeshBatch(struct FMeshBatch& Mesh, class FMeshElementCollector& Collector, class FMaterialRenderProxy* WireframeMaterialRenderProxyOrNull, bool bDrawCollision = false) const;
 
 	/** Checks to see if this mesh must be drawn during the dynamic pass.  Note that even when this returns false, we may still
 	have other (debug) geometry to render as dynamic */
@@ -92,7 +96,6 @@ protected:
 	bool IsInCollisionView(const FEngineShowFlags& EngineShowFlags) const;
 
 	// FPrimitiveSceneProxy interface
-	virtual void DrawStaticElements(class FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, class FMeshElementCollector& Collector) const override;
 	virtual uint32 GetMemoryFootprint(void) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const class FSceneView* View) const override;
