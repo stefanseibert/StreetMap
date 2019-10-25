@@ -4,7 +4,6 @@
 #include "PolygonTools.h"
 #include "StreetMap.h"
 #include "StreetMapRuntime.h"
-#include "StreetMapComponent.h"
 #include "StreetMapSceneProxy.h"
 #include "Components/MeshComponent.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
