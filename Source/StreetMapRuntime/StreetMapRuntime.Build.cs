@@ -8,6 +8,7 @@ public class StreetMapRuntime : ModuleRules
     public StreetMapRuntime(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivatePCHHeaderFile = "StreetMapRuntime.h";
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "Core",
@@ -17,6 +18,14 @@ public class StreetMapRuntime : ModuleRules
 				"RenderCore",
                 "PropertyEditor"
             }
+		);
+
+		PublicDependencyModuleNames.AddRange(
+			new string[] {
+				"RenderCore",
+				"RHI",
+				"RuntimeMeshComponent"
+			}
 		);
 	}
 }
