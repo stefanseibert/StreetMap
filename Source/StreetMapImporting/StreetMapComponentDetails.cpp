@@ -235,7 +235,7 @@ FReply FStreetMapComponentDetails::OnCreateStaticMeshAssetClicked()
 
 			
 			const TArray<FStreetMapVertex > RawMeshVertices = SelectedStreetMapComponent->GetRawMeshVertices();
-			const TArray< uint32 > RawMeshIndices = SelectedStreetMapComponent->GetRawMeshIndices();
+			const TArray< int32 > RawMeshIndices = SelectedStreetMapComponent->GetRawMeshIndices();
 
 
 			// Copy verts
@@ -254,15 +254,15 @@ FReply FStreetMapComponentDetails::OnCreateStaticMeshAssetClicked()
 
 				const FStreetMapVertex& StreetMapVertex = RawMeshVertices[VertexIndex];
 
-				FVector TangentX = StreetMapVertex.TangentX;
-				FVector TangentZ = StreetMapVertex.TangentZ;
+				FVector TangentX = StreetMapVertex.Tangent.ToFVector();
+				FVector TangentZ = StreetMapVertex.Normal.ToFVector();
 				FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal();
 
 				RawMesh.WedgeTangentX.Add(TangentX);
 				RawMesh.WedgeTangentY.Add(TangentY);
 				RawMesh.WedgeTangentZ.Add(TangentZ);
 
-				RawMesh.WedgeTexCoords[0].Add(StreetMapVertex.TextureCoordinate);
+				RawMesh.WedgeTexCoords[0].Add(StreetMapVertex.UV0);
 				RawMesh.WedgeColors.Add(StreetMapVertex.Color);
 			}
 
@@ -359,7 +359,7 @@ FReply FStreetMapComponentDetails::OnClearMeshClicked()
 	if (SelectedStreetMapComponent != nullptr)
 	{
 		//
-		SelectedStreetMapComponent->InvalidateMesh();
+		SelectedStreetMapComponent->ClearMesh();
 
 		// regenerates details panel layouts , to take in consideration new changes.
 		RefreshDetails();

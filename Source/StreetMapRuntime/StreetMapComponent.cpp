@@ -33,7 +33,7 @@ void UStreetMapComponent::SetStreetMap(class UStreetMap* NewStreetMap, bool bCle
 		StreetMap = NewStreetMap;
 
 		if (bClearPreviousMeshIfAny)
-			this->ClearMeshSection(0);
+			ClearMesh();
 
 		if (bRebuildMesh)
 			BuildMesh();
@@ -308,6 +308,7 @@ void UStreetMapComponent::ClearMesh()
 {
 	Vertices.Reset();
 	Indices.Reset();
+	ClearMeshSection(0);
 }
 
 
