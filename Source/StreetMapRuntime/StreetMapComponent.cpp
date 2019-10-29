@@ -4,14 +4,9 @@
 
 
 UStreetMapComponent::UStreetMapComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer),
-	  StreetMap(nullptr),
-	  CachedLocalBounds(ForceInit)
+	: URuntimeMeshComponent(ObjectInitializer),
+	  StreetMap(nullptr)
 {
-	// We make sure our mesh collision profile name is set to NoCollisionProfileName at initialization. 
-	// Because we don't have collision data yet!
-	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-
 	// We don't currently need to be ticked.  This can be overridden in a derived class though.
 	PrimaryComponentTick.bCanEverTick = false;
 	this->bAutoActivate = false;	// NOTE: Components instantiated through C++ are not automatically active, so they'll only tick once and then go to sleep!
@@ -26,35 +21,8 @@ UStreetMapComponent::UStreetMapComponent(const FObjectInitializer& ObjectInitial
 	// Our mesh is too complicated to be a useful occluder.
 	bUseAsOccluder = false;
 
-	// Our mesh can influence navigation.
-	bCanEverAffectNavigation = true;
-
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultMaterialAsset(TEXT("/StreetMap/StreetMapDefaultMaterial"));
 	StreetMapDefaultMaterial = DefaultMaterialAsset.Object;
-
-}
-
-
-FPrimitiveSceneProxy* UStreetMapComponent::CreateSceneProxy()
-{
-	FStreetMapSceneProxy* StreetMapSceneProxy = nullptr;
-
-	if( HasValidMesh() )
-	{
-		StreetMapSceneProxy = new FStreetMapSceneProxy( this );
-		StreetMapSceneProxy->Init( this, Vertices, Indices );
-	}
-	
-	return StreetMapSceneProxy;
-}
-
-
-int32 UStreetMapComponent::GetNumMaterials() const
-{
-	// NOTE: This is a bit of a weird thing about Unreal that we need to deal with when defining a component that
-	// can have materials assigned.  UPrimitiveComponent::GetNumMaterials() will return 0, so we need to override it 
-	// to return the number of overridden materials, which are the actual materials assigned to the component.
-	return HasValidMesh() ? GetNumMeshSections() : GetNumOverrideMaterials();
 }
 
 
@@ -65,135 +33,13 @@ void UStreetMapComponent::SetStreetMap(class UStreetMap* NewStreetMap, bool bCle
 		StreetMap = NewStreetMap;
 
 		if (bClearPreviousMeshIfAny)
-			InvalidateMesh();
+			this->ClearMeshSection(0);
 
 		if (bRebuildMesh)
 			BuildMesh();
 	}
 }
 
-
-bool UStreetMapComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
-{
-
-	if (!CollisionSettings.bGenerateCollision || !HasValidMesh())
-	{
-		return false;
-	}
-
-	// Copy vertices data
-	const int32 NumVertices = Vertices.Num();
-	CollisionData->Vertices.Empty();
-	CollisionData->Vertices.AddUninitialized(NumVertices);
-
-	for (int32 VertexIndex = 0; VertexIndex < NumVertices; VertexIndex++)
-	{
-		CollisionData->Vertices[VertexIndex] = Vertices[VertexIndex].Position;
-	}
-
-	// Copy indices data
-	const int32 NumTriangles = Indices.Num() / 3;
-	FTriIndices TempTriangle;
-	for (int32 TriangleIndex = 0; TriangleIndex < NumTriangles * 3; TriangleIndex += 3)
-	{
-
-		TempTriangle.v0 = Indices[TriangleIndex + 0];
-		TempTriangle.v1 = Indices[TriangleIndex + 1];
-		TempTriangle.v2 = Indices[TriangleIndex + 2];
-
-
-		CollisionData->Indices.Add(TempTriangle);
-		CollisionData->MaterialIndices.Add(0);
-	}
-
-	CollisionData->bFlipNormals = true;
-	CollisionData->bDeformableMesh = true;
-
-	return HasValidMesh();
-}
-
-
-bool UStreetMapComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
-{
-	return HasValidMesh() && CollisionSettings.bGenerateCollision;
-}
-
-
-bool UStreetMapComponent::WantsNegXTriMesh()
-{
-	return false;
-}
-
-
-void UStreetMapComponent::CreateBodySetupIfNeeded(bool bForceCreation /*= false*/)
-{
-	if (StreetMapBodySetup == nullptr || bForceCreation == true)
-	{
-		// Creating new BodySetup Object.
-		StreetMapBodySetup = NewObject<UBodySetup>(this);
-		StreetMapBodySetup->BodySetupGuid = FGuid::NewGuid();
-		StreetMapBodySetup->bDoubleSidedGeometry = CollisionSettings.bAllowDoubleSidedGeometry;
-
-		// shapes per poly shape for collision (Not working in simulation mode).
-		StreetMapBodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
-	}
-}
-
-
-void UStreetMapComponent::GenerateCollision()
-{
-	if (!CollisionSettings.bGenerateCollision || !HasValidMesh())
-	{
-		return;
-	}
-
-	// create a new body setup
-	CreateBodySetupIfNeeded(true);
-
-
-	if (GetCollisionProfileName() == UCollisionProfile::NoCollision_ProfileName)
-	{
-		SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-	}
-
-	// Rebuild the body setup
-	StreetMapBodySetup->InvalidatePhysicsData();
-	StreetMapBodySetup->CreatePhysicsMeshes();
-	UpdateNavigationIfNeeded();
-}
-
-
-void UStreetMapComponent::ClearCollision()
-{
-
-	if (StreetMapBodySetup != nullptr)
-	{
-		StreetMapBodySetup->InvalidatePhysicsData();
-		StreetMapBodySetup = nullptr;
-	}
-
-	if (GetCollisionProfileName() != UCollisionProfile::NoCollision_ProfileName)
-	{
-		SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	}
-
-	UpdateNavigationIfNeeded();
-}
-
-class UBodySetup* UStreetMapComponent::GetBodySetup()
-{
-	if (CollisionSettings.bGenerateCollision == true)
-	{
-		// checking if we have a valid body setup. 
-		// A new one is created only if a valid body setup is not found.
-		CreateBodySetupIfNeeded();
-		return StreetMapBodySetup;
-	}
-
-	if (StreetMapBodySetup != nullptr) StreetMapBodySetup = nullptr;
-
-	return nullptr;
-}
 
 void UStreetMapComponent::GenerateMesh()
 {
@@ -218,11 +64,6 @@ void UStreetMapComponent::GenerateMesh()
 	const FColor BuildingFillColor( FLinearColor( BuildingBorderLinearColor * 0.33f ).CopyWithNewOpacity( 1.0f ).ToFColor( false ) );
 	/////////////////////////////////////////////////////////
 
-
-	CachedLocalBounds = FBox( ForceInit );
-	Vertices.Reset();
-	Indices.Reset();
-
 	if( StreetMap != nullptr )
 	{
 		FBox MeshBoundingBox;
@@ -232,6 +73,7 @@ void UStreetMapComponent::GenerateMesh()
 		const auto& Nodes = StreetMap->GetNodes();
 		const auto& Buildings = StreetMap->GetBuildings();
 
+		// Handling all roads in the street map file
 		for( const auto& Road : Roads )
 		{
 			float RoadThickness = StreetThickness;
@@ -363,9 +205,9 @@ void UStreetMapComponent::GenerateMesh()
 
 							FStreetMapVertex& NewVertex = *new( this->Vertices )FStreetMapVertex();
 							NewVertex.Position = FVector( Point, 0.0f );
-							NewVertex.TextureCoordinate = FVector2D( 0.0f, 0.0f );	// NOTE: We're not using texture coordinates for anything yet
-							NewVertex.TangentX = FVector::ForwardVector;	 // NOTE: Tangents aren't important for these unlit buildings
-							NewVertex.TangentZ = FVector::UpVector;
+							NewVertex.UV0 = FVector2D( 0.0f, 0.0f );
+							NewVertex.Tangent = FVector::ForwardVector;
+							NewVertex.Normal = FVector::UpVector;
 							NewVertex.Color = BuildingFillColor;
 
 							MeshBoundingBox += NewVertex.Position;
@@ -414,43 +256,24 @@ void UStreetMapComponent::GenerateMesh()
 				}
 			}
 		}
-
-		CachedLocalBounds = MeshBoundingBox;
 	}
+
+	this->CreateMeshSection(0, Vertices, Indices, false, EUpdateFrequency::Average, ESectionUpdateFlags::None);
 }
 
 
 #if WITH_EDITOR
 void UStreetMapComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	bool bNeedRefreshCustomizationModule = false;
-
 	// Check to see if the "StreetMap" property changed.
 	if (PropertyChangedEvent.Property != nullptr)
 	{
 		const FName PropertyName(PropertyChangedEvent.Property->GetFName());
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UStreetMapComponent, StreetMap))
 		{
-			bNeedRefreshCustomizationModule = true;
+			FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			PropertyModule.NotifyCustomizationModuleChanged();
 		}
-		else if (IsCollisionProperty(PropertyName)) // For some unknown reason , GET_MEMBER_NAME_CHECKED(UStreetMapComponent, CollisionSettings) is not working ??? "TO CHECK LATER"
-		{
-			if (CollisionSettings.bGenerateCollision == true)
-			{
-				GenerateCollision();
-			}
-			else
-			{
-				ClearCollision();
-			}
-			bNeedRefreshCustomizationModule = true;
-		}
-	}
-
-	if (bNeedRefreshCustomizationModule)
-	{
-		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.NotifyCustomizationModuleChanged();
 	}
 
 	// Call the parent implementation of this function
@@ -461,28 +284,10 @@ void UStreetMapComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 void UStreetMapComponent::BuildMesh()
 {
-	// Wipes out our cached mesh data. Maybe unnecessary in case GenerateMesh is clearing cached mesh data and creating a new SceneProxy  !
-	InvalidateMesh();
-
+	ClearMesh();
 	GenerateMesh();
-
-	if (HasValidMesh())
-	{
-		// We have a new bounding box
-		UpdateBounds();
-	}
-	else
-	{
-		// No mesh was generated
-	}
-
-	GenerateCollision();
-
-	// Mark our render state dirty so that CreateSceneProxy can refresh it on demand
 	MarkRenderStateDirty();
-
 	AssignDefaultMaterialIfNeeded();
-
 	Modify();
 }
 
@@ -499,38 +304,10 @@ void UStreetMapComponent::AssignDefaultMaterialIfNeeded()
 }
 
 
-void UStreetMapComponent::UpdateNavigationIfNeeded()
-{
-	if (bCanEverAffectNavigation || bNavigationRelevant)
-	{
-		FNavigationSystem::UpdateComponentData(*this);
-	}
-}
-
-void UStreetMapComponent::InvalidateMesh()
+void UStreetMapComponent::ClearMesh()
 {
 	Vertices.Reset();
 	Indices.Reset();
-	CachedLocalBounds = FBoxSphereBounds(FBox(ForceInit));
-	ClearCollision();
-	// Mark our render state dirty so that CreateSceneProxy can refresh it on demand
-	MarkRenderStateDirty();
-	Modify();
-}
-
-FBoxSphereBounds UStreetMapComponent::CalcBounds( const FTransform& LocalToWorld ) const
-{
-	if( HasValidMesh() )
-	{
-		FBoxSphereBounds WorldSpaceBounds = CachedLocalBounds.TransformBy( LocalToWorld );
-		WorldSpaceBounds.BoxExtent *= BoundsScale;
-		WorldSpaceBounds.SphereRadius *= BoundsScale;
-		return WorldSpaceBounds;
-	}
-	else
-	{
-		return FBoxSphereBounds( LocalToWorld.GetLocation(), FVector::ZeroVector, 0.0f );
-	}
 }
 
 
@@ -543,37 +320,38 @@ void UStreetMapComponent::AddThick2DLine( const FVector2D Start, const FVector2D
 
 	const int32 BottomLeftVertexIndex = Vertices.Num();
 	FStreetMapVertex& BottomLeftVertex = *new( Vertices )FStreetMapVertex();
+
 	BottomLeftVertex.Position = FVector( Start - RightVector * HalfThickness, Z );
-	BottomLeftVertex.TextureCoordinate = FVector2D( 0.0f, 0.0f );
-	BottomLeftVertex.TangentX = FVector( LineDirection, 0.0f );
-	BottomLeftVertex.TangentZ = FVector::UpVector;
+	BottomLeftVertex.UV0 = FVector2D( 0.0f, 0.0f );
+	BottomLeftVertex.Tangent = FVector( LineDirection, 0.0f );
+	BottomLeftVertex.Normal = FVector::UpVector;
 	BottomLeftVertex.Color = StartColor;
 	MeshBoundingBox += BottomLeftVertex.Position;
 
 	const int32 BottomRightVertexIndex = Vertices.Num();
 	FStreetMapVertex& BottomRightVertex = *new( Vertices )FStreetMapVertex();
 	BottomRightVertex.Position = FVector( Start + RightVector * HalfThickness, Z );
-	BottomRightVertex.TextureCoordinate = FVector2D( 1.0f, 0.0f );
-	BottomRightVertex.TangentX = FVector( LineDirection, 0.0f );
-	BottomRightVertex.TangentZ = FVector::UpVector;
+	BottomRightVertex.UV0 = FVector2D( 1.0f, 0.0f );
+	BottomRightVertex.Tangent = FVector( LineDirection, 0.0f );
+	BottomRightVertex.Normal = FVector::UpVector;
 	BottomRightVertex.Color = StartColor;
 	MeshBoundingBox += BottomRightVertex.Position;
 
 	const int32 TopRightVertexIndex = Vertices.Num();
 	FStreetMapVertex& TopRightVertex = *new( Vertices )FStreetMapVertex();
 	TopRightVertex.Position = FVector( End + RightVector * HalfThickness, Z );
-	TopRightVertex.TextureCoordinate = FVector2D( 1.0f, 1.0f );
-	TopRightVertex.TangentX = FVector( LineDirection, 0.0f );
-	TopRightVertex.TangentZ = FVector::UpVector;
+	TopRightVertex.UV0 = FVector2D( 1.0f, 1.0f );
+	TopRightVertex.Tangent = FVector( LineDirection, 0.0f );
+	TopRightVertex.Normal = FVector::UpVector;
 	TopRightVertex.Color = EndColor;
 	MeshBoundingBox += TopRightVertex.Position;
 
 	const int32 TopLeftVertexIndex = Vertices.Num();
 	FStreetMapVertex& TopLeftVertex = *new( Vertices )FStreetMapVertex();
 	TopLeftVertex.Position = FVector( End - RightVector * HalfThickness, Z );
-	TopLeftVertex.TextureCoordinate = FVector2D( 0.0f, 1.0f );
-	TopLeftVertex.TangentX = FVector( LineDirection, 0.0f );
-	TopLeftVertex.TangentZ = FVector::UpVector;
+	TopLeftVertex.UV0 = FVector2D( 0.0f, 1.0f );
+	TopLeftVertex.Tangent = FVector( LineDirection, 0.0f );
+	TopLeftVertex.Normal = FVector::UpVector;
 	TopLeftVertex.Color = EndColor;
 	MeshBoundingBox += TopLeftVertex.Position;
 
@@ -595,9 +373,9 @@ void UStreetMapComponent::AddTriangles( const TArray<FVector>& Points, const TAr
 	{
 		FStreetMapVertex& NewVertex = *new( Vertices )FStreetMapVertex();
 		NewVertex.Position = Point;
-		NewVertex.TextureCoordinate = FVector2D( 0.0f, 0.0f );	// NOTE: We're not using texture coordinates for anything yet
-		NewVertex.TangentX = ForwardVector;
-		NewVertex.TangentZ = UpVector;
+		NewVertex.UV0 = FVector2D( 0.0f, 0.0f );
+		NewVertex.Tangent = ForwardVector;
+		NewVertex.Normal = UpVector;
 		NewVertex.Color = Color;
 
 		MeshBoundingBox += NewVertex.Position;

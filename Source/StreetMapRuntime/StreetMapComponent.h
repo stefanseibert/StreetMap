@@ -4,13 +4,8 @@
 #include "PolygonTools.h"
 #include "StreetMap.h"
 #include "StreetMapRuntime.h"
-#include "StreetMapSceneProxy.h"
-#include "Components/MeshComponent.h"
-#include "Interfaces/Interface_CollisionDataProvider.h"
-#include "Runtime/Engine/Classes/Engine/StaticMesh.h"
-#include "Runtime/Engine/Public/StaticMeshResources.h"
-#include "Runtime/Engine/Public/PrimitiveSceneProxy.h"
-#include "PhysicsEngine/BodySetup.h"
+#include "StreetMapVertex.h"
+#include "RuntimeMeshComponent.h"
 
 #if WITH_EDITOR
 	#include "ModuleManager.h"
@@ -19,14 +14,11 @@
 
 #include "StreetMapComponent.generated.h"
 
-
-class UBodySetup;
-
 /**
  * Component that represents a section of street map roads and buildings
  */
 UCLASS( meta=(BlueprintSpawnableComponent) , hidecategories = (Physics))
-class STREETMAPRUNTIME_API UStreetMapComponent : public UMeshComponent, public IInterface_CollisionDataProvider
+class STREETMAPRUNTIME_API UStreetMapComponent : public URuntimeMeshComponent
 {
 	GENERATED_BODY()
 
@@ -56,8 +48,8 @@ public:
 		return Vertices;
 	}
 
-	/** Returns Cached raw mesh triangle indices */
-	TArray< uint32 > GetRawMeshIndices() const
+	 /** Returns Cached raw mesh triangle indices */
+	TArray< int32 > GetRawMeshIndices() const
 	{
 		return Indices;
 	}
@@ -69,12 +61,6 @@ public:
 	UMaterialInterface* GetDefaultMaterial() const
 	{
 		return StreetMapDefaultMaterial != nullptr ? StreetMapDefaultMaterial : UMaterial::GetDefaultMaterial(MD_Surface);
-	}
-
-	/** Returns true, if the input PropertyName correspond to a collision property. */
-	bool IsCollisionProperty(const FName& PropertyName) const 
-	{
-		return PropertyName == TEXT("bGenerateCollision") || PropertyName == TEXT("bAllowDoubleSidedGeometry");
 	}
 
 	/**
@@ -99,54 +85,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "StreetMap")
 		void SetStreetMap(UStreetMap* NewStreetMap, bool bClearPreviousMeshIfAny = false, bool bRebuildMesh = false);
 
-
-
-	//** Begin Interface_CollisionDataProvider Interface */
-	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
-	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
-	virtual bool WantsNegXTriMesh() override;
-	//** End Interface_CollisionDataProvider Interface *//
-
-protected:
-
-	/**
-	* Ensures the body setup is initialized/configured and updates it if needed.
-	* @param bForceCreation : Force new BodySetup creation even if a valid one already exists.
-	*/
-	void CreateBodySetupIfNeeded(bool bForceCreation = false);
-
-	/** Marks collision data as dirty, and re-create on instance if necessary */
-	void GenerateCollision();
-
-	/** Wipes out and invalidate collision data. */
-	void ClearCollision();
-
-public:
-
-	// UPrimitiveComponent interface
-	virtual  UBodySetup* GetBodySetup() override;
-	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	virtual int32 GetNumMaterials() const override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
 	/** Wipes out our cached mesh data. Designed to be called on demand.*/
-	void InvalidateMesh();
+	void ClearMesh();
 
 	/** Rebuilds the graphics and physics mesh representation if we don't have one right now.  Designed to be called on demand. */
 	void BuildMesh();
-
-
 
 protected:
 
 	/** Giving a default material to the mesh if no valid material is already assigned or materials array is empty. */
 	void AssignDefaultMaterialIfNeeded();
-
-	/** Updating navoctree entry for this component , if need/possible. */
-	void UpdateNavigationIfNeeded();
 
 	/** Generates a cached mesh from raw street map data */
 	void GenerateMesh();
@@ -167,13 +119,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "StreetMap")
 		FStreetMapMeshBuildSettings MeshBuildSettings;
 
-	UPROPERTY(EditAnywhere, Category = "StreetMap")
-		FStreetMapCollisionSettings CollisionSettings;
-
-	//** Physics data for mesh collision. */
-	UPROPERTY(Transient)
-		UBodySetup* StreetMapBodySetup;
-
 
 protected:
 	//
@@ -181,16 +126,10 @@ protected:
 	//
 
 	/** Cached raw mesh vertices */
-	UPROPERTY()
-		TArray< struct FStreetMapVertex > Vertices;
+	TArray<FStreetMapVertex> Vertices;
 
 	/** Cached raw mesh triangle indices */
-	UPROPERTY()
-		TArray< uint32 > Indices;
-
-	/** Cached bounding box */
-	UPROPERTY()
-		FBoxSphereBounds CachedLocalBounds;
+	TArray< int32 > Indices;
 
 	/** Cached StreetMap DefaultMaterial */
 	UPROPERTY()
