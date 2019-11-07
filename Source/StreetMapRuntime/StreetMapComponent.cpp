@@ -258,7 +258,7 @@ void UStreetMapComponent::GenerateMesh()
 		}
 	}
 
-	this->CreateMeshSection(0, Vertices, Indices, false, EUpdateFrequency::Average, ESectionUpdateFlags::None);
+	this->CreateMeshSection(346, Vertices, Indices, false, EUpdateFrequency::Average, ESectionUpdateFlags::None);
 }
 
 

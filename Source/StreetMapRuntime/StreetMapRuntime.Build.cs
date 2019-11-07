@@ -24,7 +24,8 @@ public class StreetMapRuntime : ModuleRules
 			new string[] {
 				"RenderCore",
 				"RHI",
-				"RuntimeMeshComponent"
+				"RuntimeMeshComponent",
+                "ProceduralCityGenerator"
 			}
 		);
 	}

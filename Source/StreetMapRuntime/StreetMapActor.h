@@ -3,6 +3,7 @@
 
 #include "StreetMapRuntime.h"
 #include "StreetMapComponent.h"
+#include "ProceduralCityActor.h"
 #include "StreetMapActor.generated.h"
 
 
@@ -16,6 +17,14 @@ class STREETMAPRUNTIME_API AStreetMapActor : public AActor
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StreetMap")
 		class UStreetMapComponent* StreetMapComponent;
 
+private:
+	AProceduralCityActor* _cityGenerator;
+
 public: 
 	FORCEINLINE class UStreetMapComponent* GetStreetMapComponent() { return StreetMapComponent; }
+
+	virtual void Tick(float delta) override;
+
+	UFUNCTION()
+	void RespondToQuadrantActivate(const float minLatitude, const float minLongitude, const float quadrantSize, const uint32 quadrantId);
 };
