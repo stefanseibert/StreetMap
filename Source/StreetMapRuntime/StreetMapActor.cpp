@@ -2,7 +2,6 @@
 
 #include "StreetMapActor.h"
 
-
 AStreetMapActor::AStreetMapActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer),
 	_cityGenerator(nullptr)
